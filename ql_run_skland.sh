@@ -140,6 +140,9 @@ main() {
   fi
 
   export TOKEN="$SKLAND_TOKEN"
+  if [ -n "${SKLAND_SC_KEY:-}" ]; then
+    export SC3_SENDKEY="$SKLAND_SC_KEY"
+  fi
 
   local output
   local exit_code=0
