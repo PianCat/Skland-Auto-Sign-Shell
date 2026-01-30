@@ -77,6 +77,19 @@ send_notify() {
   echo "$content_trimmed"
 }
 
+run_and_capture() {
+  local output
+  local exit_code=0
+
+  set +e
+  output="$("$@" 2>&1 | tee /dev/fd/2)"
+  exit_code=$?
+  set -e
+
+  printf '%s' "$output"
+  return $exit_code
+}
+
 main() {
   local action
   local output
@@ -85,13 +98,13 @@ main() {
   if [ -d "${REPO_DIR}/.git" ]; then
     action="拉取更新"
     set +e
-    output="$(git -C "$REPO_DIR" pull --rebase 2>&1)"
+    output="$(run_and_capture git -C "$REPO_DIR" pull --rebase)"
     exit_code=$?
     set -e
   else
     action="克隆仓库"
     set +e
-    output="$(git clone "$REPO_URL" "$REPO_DIR" 2>&1)"
+    output="$(run_and_capture git clone "$REPO_URL" "$REPO_DIR")"
     exit_code=$?
     set -e
   fi

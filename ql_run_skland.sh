@@ -77,14 +77,49 @@ send_notify() {
   echo "$content_trimmed"
 }
 
+run_and_capture() {
+  local output
+  local exit_code=0
+
+  set +e
+  output="$("$@" 2>&1 | tee /dev/fd/2)"
+  exit_code=$?
+  set -e
+
+  printf '%s' "$output"
+  return $exit_code
+}
+
+normalize_output() {
+  local content="$1"
+
+  content="${content//$'\r'/$'\n'}"
+  content="$(printf '%s' "$content" | awk '{
+    len = length($0)
+    if (len == 0) {
+      print ""
+      next
+    }
+    for (i = 1; i <= len; i += 120) {
+      print substr($0, i, 120)
+    }
+  }')"
+
+  echo "$content"
+}
+
 main() {
   if [ ! -f "$MAIN_PY" ]; then
-    send_notify "Skland 运行失败" "未找到 main.py: ${MAIN_PY}"
+    local msg="未找到 main.py: ${MAIN_PY}"
+    echo "$msg" >&2
+    send_notify "Skland 运行失败" "$msg"
     return 1
   fi
 
   if [ -z "${SKLAND_TOKEN:-}" ]; then
-    send_notify "Skland 运行失败" "未设置环境变量 SKLAND_TOKEN"
+    local msg="未设置环境变量 SKLAND_TOKEN"
+    echo "$msg" >&2
+    send_notify "Skland 运行失败" "$msg"
     return 1
   fi
 
@@ -94,7 +129,9 @@ main() {
   elif command -v python >/dev/null 2>&1; then
     python_cmd="python"
   else
-    send_notify "Skland 运行失败" "未找到 python3 或 python 解释器"
+    local msg="未找到 python3 或 python 解释器"
+    echo "$msg" >&2
+    send_notify "Skland 运行失败" "$msg"
     return 1
   fi
 
@@ -102,10 +139,15 @@ main() {
 
   local output
   local exit_code=0
+  pushd "$REPO_DIR" >/dev/null
   set +e
-  output="$(cd "$REPO_DIR" && "$python_cmd" "src/main.py" 2>&1)"
+  output="$(run_and_capture "$python_cmd" "src/main.py")"
   exit_code=$?
   set -e
+  popd >/dev/null
+
+  local normalized_output
+  normalized_output="$(normalize_output "$output")"
 
   local status
   if [ $exit_code -eq 0 ]; then
@@ -115,7 +157,7 @@ main() {
   fi
 
   local title="Skland 运行${status}"
-  local content="退出码: ${exit_code}\n输出:\n${output}"
+  local content="退出码: ${exit_code}\n输出:\n${normalized_output}"
   send_notify "$title" "$content"
 
   return $exit_code
