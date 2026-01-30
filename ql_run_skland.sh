@@ -82,9 +82,13 @@ run_and_capture() {
   local exit_code=0
 
   set +e
-  output="$("$@" 2>&1 | tee /dev/fd/2)"
+  output="$("$@" 2>&1)"
   exit_code=$?
   set -e
+
+  if [ -n "$output" ]; then
+    printf '%s\n' "$output" >&2
+  fi
 
   printf '%s' "$output"
   return $exit_code
@@ -139,12 +143,10 @@ main() {
 
   local output
   local exit_code=0
-  pushd "$REPO_DIR" >/dev/null
   set +e
-  output="$(run_and_capture "$python_cmd" "src/main.py")"
+  output="$(cd "$REPO_DIR" && run_and_capture "$python_cmd" "src/main.py")"
   exit_code=$?
   set -e
-  popd >/dev/null
 
   local normalized_output
   normalized_output="$(normalize_output "$output")"
